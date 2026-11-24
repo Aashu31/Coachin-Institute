@@ -3,7 +3,9 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import express, { Router, type RequestHandler } from 'express';
 import helmet from 'helmet';
+import fs from 'node:fs';
 import { createServer } from 'node:http';
+import path from 'node:path';
 
 import { env } from './config/env.js';
 import { authMiddleware } from './middleware/auth.js';
@@ -109,10 +111,10 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         imgSrc: ["'self'", 'data:', 'https:'],
-        connectSrc: ["'self'", env.CLIENT_ORIGIN],
-        fontSrc: ["'self'"],
+        connectSrc: ["'self'", env.CLIENT_ORIGIN, 'https://*.onrender.com', 'wss://*.onrender.com'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
         baseUri: ["'self'"],
@@ -185,10 +187,32 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
 
   apiRouter.use(protectedRouter);
 
+  // Top-level health check endpoint for cloud platform health checks
+  app.use('/health', healthRouter);
+
   // Canonical versioned surface plus the /api alias requested by the Phase 1
   // specification. Both resolve to the same handlers and the same middleware.
   app.use('/api/v1', apiRouter);
   app.use('/api', apiRouter);
+
+  // Serve frontend static assets if client build exists
+  const clientDistPath = path.resolve(process.cwd(), '../client/dist');
+  const localClientDistPath = path.resolve(process.cwd(), 'client/dist');
+  const resolvedDistPath = fs.existsSync(clientDistPath)
+    ? clientDistPath
+    : fs.existsSync(localClientDistPath)
+      ? localClientDistPath
+      : null;
+
+  if (resolvedDistPath) {
+    app.use(express.static(resolvedDistPath));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api') || req.path === '/health') {
+        return next();
+      }
+      res.sendFile(path.join(resolvedDistPath, 'index.html'));
+    });
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);

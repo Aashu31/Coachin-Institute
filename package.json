@@ -16,6 +16,7 @@
     "dev:client": "npm run dev --workspace @pdo/client",
     "dev:server": "npm run dev --workspace @pdo/server",
     "build": "npm run build --workspace @pdo/server && npm run build --workspace @pdo/client",
+    "start": "npm run start --workspace @pdo/server",
     "typecheck": "npm run typecheck --workspace @pdo/server && npm run typecheck --workspace @pdo/client",
     "db:migrate": "npm run db:migrate --workspace @pdo/server",
     "db:seed": "npm run db:seed --workspace @pdo/server",

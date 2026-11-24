@@ -1,30 +1,35 @@
+databases:
+  - name: pdo-classes-db
+    databaseName: pdo_classes
+    user: pdo_admin
+    plan: free
+
 services:
   - type: web
     name: pdo-classes-platform
     env: node
     plan: free
-    buildCommand: |
-      cd server && npm install
-      cd ../client && npm install
-      cd ../client && npm run build
-    startCommand: |
-      cd server && npm run start
-    # The Express server runs on port 4000
-    # Render automatically assigns a port, but our app uses 4000
-    # We need to map Render's port to 4000
-    # Or we can make the server listen on $PORT
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
     envVars:
-      DATABASE_URL: postgres:///pdo_classes
-      NODE_ENV: production
-      VITE_API_BASE_URL: https://pdo-classes-platform.onrender.com
-      # JWT secrets etc. would go here
-
-  # Alternative: separate frontend service
-  # - type: static
-  #   name: pdo-client
-  #   env: vite
-  #   plan: free
-  #   buildCommand: npm run build --workspace @pdo/client
-  #   publishDir: client/dist
-  #   envVars:
-  #     VITE_API_BASE_URL: https://pdo-classes-platform-api.onrender.com
+      - key: NODE_ENV
+        value: production
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pdo-classes-db
+          property: connectionString
+      - key: CLIENT_ORIGIN
+        value: https://pdo-classes-platform.onrender.com
+      - key: VITE_API_BASE_URL
+        value: https://pdo-classes-platform.onrender.com
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: ALLOW_MOCK_WHATSAPP
+        value: "true"
+      - key: WHATSAPP_MOCK_MODE
+        value: "true"

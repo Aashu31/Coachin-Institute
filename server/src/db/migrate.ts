@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,7 +9,10 @@ import type { PoolClient } from 'pg';
 import { logger } from '../utils/logger.js';
 import { createMigrationPool } from './pool.js';
 
-const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations');
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const MIGRATIONS_DIR = existsSync(path.join(currentDir, 'migrations'))
+  ? path.join(currentDir, 'migrations')
+  : path.resolve(currentDir, '../../src/db/migrations');
 const migrationPool = createMigrationPool();
 
 interface MigrationRow {

@@ -59,10 +59,14 @@ if (!parsed.success) {
   );
 }
 
-// Security hardening: WHATSAPP_MOCK_MODE must be false in production
-if (parsed.data.NODE_ENV === 'production' && parsed.data.WHATSAPP_MOCK_MODE !== false) {
+// Security hardening: WHATSAPP_MOCK_MODE must be false in production unless explicitly allowed for staging/demo
+if (
+  parsed.data.NODE_ENV === 'production' &&
+  parsed.data.WHATSAPP_MOCK_MODE !== false &&
+  process.env.ALLOW_MOCK_WHATSAPP !== 'true'
+) {
   throw new Error(
-    'Security violation: WHATSAPP_MOCK_MODE must be false in production (NODE_ENV=production).'
+    'Security violation: WHATSAPP_MOCK_MODE must be false in production (NODE_ENV=production). Set ALLOW_MOCK_WHATSAPP=true if running in a demo or staging environment without Meta WhatsApp API credentials.',
   );
 }
 
