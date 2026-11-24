@@ -1,0 +1,27 @@
+{
+  "name": "pdo-classes-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "P.D.O Classes coaching platform and real-time attendance escalation engine.",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently --names api,web --prefix-colors magenta,cyan \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:client": "npm run dev --workspace @pdo/client",
+    "dev:server": "npm run dev --workspace @pdo/server",
+    "build": "npm run build --workspace @pdo/server && npm run build --workspace @pdo/client",
+    "typecheck": "npm run typecheck --workspace @pdo/server && npm run typecheck --workspace @pdo/client",
+    "db:migrate": "npm run db:migrate --workspace @pdo/server",
+    "db:seed": "npm run db:seed --workspace @pdo/server",
+    "db:setup": "npm run db:migrate && npm run db:seed"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

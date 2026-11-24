@@ -1,0 +1,19 @@
+{
+  "name": "P.D.O Classes",
+  "short_name": "P.D.O",
+  "description": "CAT/MBA and Class 11–12 PCM coaching in Lalpur, Ranchi, with a 15-second teacher attendance sheet.",
+  "start_url": "/app/teacher",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F8FAFC",
+  "theme_color": "#0F172A",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
