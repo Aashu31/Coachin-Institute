@@ -5,13 +5,16 @@ import { logger } from '../utils/logger.js';
 import type { TenantDb } from '../types/tenant.js';
 
 function buildPool(connectionString: string): Pool {
+  const isCloudHost = !connectionString.includes('localhost') && !connectionString.includes('127.0.0.1');
+  const needsSsl = env.DATABASE_SSL || (env.NODE_ENV === 'production' && isCloudHost) || connectionString.includes('sslmode=');
+
   const instance = new Pool({
     connectionString,
     max: env.DATABASE_POOL_MAX,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
     allowExitOnIdle: false,
-    ssl: env.DATABASE_SSL ? { rejectUnauthorized: false } : undefined,
+    ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
   });
 
   instance.on('error', (error: Error) => {
