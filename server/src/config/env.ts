@@ -18,8 +18,14 @@ const envSchema = z.object({
 
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
 
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-  JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
+  JWT_SECRET: z
+    .string()
+    .min(32, 'JWT_SECRET must be at least 32 characters')
+    .default('pdo_classes_jwt_secure_access_secret_key_minimum_32_characters_2026'),
+  JWT_REFRESH_SECRET: z
+    .string()
+    .min(32, 'JWT_REFRESH_SECRET must be at least 32 characters')
+    .default('pdo_classes_jwt_secure_refresh_secret_key_minimum_32_characters_2026'),
   JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(900),
   JWT_REFRESH_TTL_SECONDS: z.coerce.number().int().min(300).default(604_800),
   JWT_ISSUER: z.string().min(1).default('pdo-classes-api'),
