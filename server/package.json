@@ -13,6 +13,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "postinstall": "npm run typecheck",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts"
   },
