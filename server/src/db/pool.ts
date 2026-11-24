@@ -5,8 +5,7 @@ import { logger } from '../utils/logger.js';
 import type { TenantDb } from '../types/tenant.js';
 
 function buildPool(connectionString: string): Pool {
-  const isCloudHost = !connectionString.includes('localhost') && !connectionString.includes('127.0.0.1');
-  const needsSsl = env.DATABASE_SSL || (env.NODE_ENV === 'production' && isCloudHost) || connectionString.includes('sslmode=');
+  const needsSsl = env.DATABASE_SSL || connectionString.includes('sslmode=require');
 
   const instance = new Pool({
     connectionString,
