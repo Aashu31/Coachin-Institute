@@ -1,9 +1,13 @@
 // P.D.O Classes - Progressive Web App Service Worker
-const CACHE_NAME = 'pdo-classes-pwa-v1';
+const CACHE_NAME = 'pdo-classes-pwa-v2';
+const OFFLINE_URL = '/offline.html';
+
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
+  '/offline.html',
   '/manifest.webmanifest',
+  '/manifest.json',
   '/icon.svg',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
@@ -11,26 +15,31 @@ const PRECACHE_ASSETS = [
   '/icons/maskable-icon-512x512.png'
 ];
 
-// Install: precache offline app shell
+// Install: precache offline fallback and essential app shell
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[PWA Service Worker] Precache warning:', err);
-      });
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // Cache files individually so one failure does not abort the install
+      await Promise.allSettled(
+        PRECACHE_ASSETS.map((url) =>
+          cache.add(url).catch((err) => {
+            console.warn('[PWA SW] Precache skip:', url, err);
+          })
+        )
+      );
     })
   );
 });
 
-// Activate: cleanup stale caches and claim clients immediately
+// Activate: clean up old caches and claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
+    caches.keys().then((keys) => {
       return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
           }
         })
       );
@@ -38,38 +47,46 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: Network-first with cache fallback for navigation & static assets
+// Fetch: intercept requests, serve cache when available, and guarantee offline fallback
 self.addEventListener('fetch', (event) => {
-  // Ignore non-GET or chrome-extension/external cross-origin requests
   if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
 
-  // Do not intercept API requests (let them hit server directly)
+  // Skip API calls - let them communicate directly with the server
   if (url.pathname.startsWith('/api')) {
     return;
   }
 
-  // Handle navigation & static requests
+  // Handle navigation requests (PWABuilder tests offline navigation here)
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
           if (response && response.status === 200) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
           return response;
         })
-        .catch(() => {
-          return caches.match('/index.html') || caches.match('/');
+        .catch(async () => {
+          const cache = await caches.open(CACHE_NAME);
+          const cachedResponse = await cache.match(event.request);
+          if (cachedResponse) return cachedResponse;
+
+          const offlineFallback = await cache.match(OFFLINE_URL);
+          if (offlineFallback) return offlineFallback;
+
+          return new Response(
+            '<!doctype html><html><head><title>Offline</title></head><body><h1>Offline</h1><p>P.D.O Classes is currently offline.</p></body></html>',
+            { headers: { 'Content-Type': 'text/html' }, status: 200 }
+          );
         })
     );
     return;
   }
 
-  // Cache-first for images/fonts/icons, network-first for rest
+  // For static assets: cache-first with network fallback
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -84,15 +101,12 @@ self.addEventListener('fetch', (event) => {
         return cachedResponse;
       }
 
-      return fetch(event.request).then((response) => {
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
+      return fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
-        return response;
+        return networkResponse;
       });
     })
   );
