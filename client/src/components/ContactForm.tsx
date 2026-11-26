@@ -52,32 +52,30 @@ export default function ContactForm({ initialCourse = 'CAT' }: ContactFormProps)
     const slotVal = slot;
     const messageVal = message.trim();
 
-    const web3Payload = {
-      access_key: '807a84df-22b2-4cc8-bf5a-37c990ceb9b4',
-      name: studentNameVal,
-      email: emailVal,
-      phone: phoneVal,
-      course: courseVal === 'CLASS_12_PCM' ? 'Class 11–12 PCM' : 'CAT / MBA entrance',
-      slot: slotVal === 'MORNING' ? 'Morning · 8–11 AM' : slotVal === 'WEEKEND' ? 'Weekend' : 'Evening · 4–7 PM',
-      message: messageVal,
-      subject: `New Demo Class & Contact Form: ${studentNameVal} (${phoneVal})`,
-      from_name: 'P.D.O Classes Website',
-    };
+    const formData = new FormData();
+    formData.append('access_key', '807a84df-22b2-4cc8-bf5a-37c990ceb9b4');
+    formData.append('name', studentNameVal);
+    formData.append('email', emailVal);
+    formData.append('phone', phoneVal);
+    formData.append('course', courseVal === 'CLASS_12_PCM' ? 'Class 11–12 PCM' : 'CAT / MBA entrance');
+    formData.append('slot', slotVal === 'MORNING' ? 'Morning · 8–11 AM' : slotVal === 'WEEKEND' ? 'Weekend' : 'Evening · 4–7 PM');
+    formData.append('message', messageVal);
+    formData.append('subject', `New Demo Class & Contact Form: ${studentNameVal} (${phoneVal})`);
+    formData.append('from_name', 'P.D.O Classes Website');
 
     let web3Success = false;
     let platformSuccess = false;
 
     // Concurrently trigger Web3Forms submission and Institute Leads CRM registration
     const [web3Result, platformResult] = await Promise.allSettled([
-      // 1. Web3Forms email notification
+      // 1. Web3Forms email notification (multipart FormData avoids CORS preflight blockage)
       (async () => {
         const response = await fetch('https://api.web3forms.com/submit', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
             Accept: 'application/json',
           },
-          body: JSON.stringify(web3Payload),
+          body: formData,
         });
 
         const text = await response.text();
@@ -90,7 +88,7 @@ export default function ContactForm({ initialCourse = 'CAT' }: ContactFormProps)
         }
       })(),
 
-      // 2. Platform Leads database registration (ensures lead is never lost)
+      // 2. Platform Leads database registration (ensures exact lead details are never lost)
       (async () => {
         if (studentNameVal && phoneVal.replace(/\D/g, '').length >= 10) {
           const leadRes = await api.createDemoLead({
