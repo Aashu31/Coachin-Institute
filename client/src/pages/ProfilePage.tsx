@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth';
 import { homePathForRole } from '../lib/roles';
 import { updateProfileSchema, changePasswordSchema, deleteAccountSchema } from '../lib/validation';
 import { useApiErrorToast } from '../components/ui';
+import ThemeToggle from '../components/ThemeToggle';
 
 type Tab = 'profile' | 'password' | 'danger';
 
@@ -153,7 +154,7 @@ export default function ProfilePage(): JSX.Element {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-150 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:py-12">
         {/* Header */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -253,9 +254,18 @@ export default function ProfilePage(): JSX.Element {
                   className="input-field"
                 />
               </div>
+
+              {/* Theme Preference */}
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                <label className="field-label">Theme Preference</label>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2.5">
+                  Select how the platform appears on your device.
+                </p>
+                <ThemeToggle variant="segmented" />
+              </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+            <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
               <div className="text-sm text-slate-600">
                 <p className="font-medium">Email (cannot be changed)</p>
                 <p>{user?.email}</p>

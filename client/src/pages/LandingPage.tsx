@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import ContactForm from '../components/ContactForm';
+import ThemeToggle from '../components/ThemeToggle';
 import { BUSINESS, DEMO_WHATSAPP_MESSAGE, whatsappUrl } from '../lib/business';
 
 type TrackId = 'cat' | 'pcm';
@@ -157,15 +158,15 @@ function ArrowIcon({ className = 'h-4 w-4' }: { className?: string }): JSX.Eleme
 function Logo({ compact = false }: { compact?: boolean }): JSX.Element {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-900 font-display text-xs font-extrabold tracking-tight text-white ring-1 ring-white/10">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-900 font-display text-xs font-extrabold tracking-tight text-white ring-1 ring-white/10 dark:bg-blue-600">
         PDO
       </div>
       <div>
-        <p className="font-display text-sm font-bold leading-tight tracking-tight text-slate-900">
+        <p className="font-display text-sm font-bold leading-tight tracking-tight text-slate-900 dark:text-white">
           {BUSINESS.name}
         </p>
         {!compact ? (
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
             Lalpur · Ranchi
           </p>
         ) : null}
@@ -207,31 +208,32 @@ export default function LandingPage(): JSX.Element {
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
+      <header className="relative z-40 border-b border-slate-200/80 bg-white transition-colors duration-150 dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Link to="/" aria-label={`${BUSINESS.name} home`}>
             <Logo />
           </Link>
 
-          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex" aria-label="Main">
-            <a className="transition hover:text-slate-900" href="#courses">
+          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-300 md:flex" aria-label="Main">
+            <a className="transition hover:text-slate-900 dark:hover:text-white" href="#courses">
               Courses
             </a>
-            <a className="transition hover:text-slate-900" href="#safety">
+            <a className="transition hover:text-slate-900 dark:hover:text-white" href="#safety">
               Parent safety
             </a>
-            <a className="transition hover:text-slate-900" href="#reviews">
+            <a className="transition hover:text-slate-900 dark:hover:text-white" href="#reviews">
               Reviews
             </a>
-            <a className="transition hover:text-slate-900" href="#contact">
+            <a className="transition hover:text-slate-900 dark:hover:text-white" href="#contact">
               Contact
             </a>
           </nav>
 
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Link
               to="/login"
-              className="hidden min-h-10 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 sm:inline-flex"
+              className="hidden min-h-10 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white sm:inline-flex"
             >
               Staff login
             </Link>
@@ -839,12 +841,12 @@ export default function LandingPage(): JSX.Element {
         </section>
       </main>
 
-      <footer className="border-t border-slate-200 bg-slate-50">
+      <footer className="border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
           <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
             <div className="max-w-sm">
               <Logo />
-              <p className="mt-3 text-xs leading-relaxed text-slate-500">
+              <p className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                 CAT / MBA entrance preparation and Class 11–12 PCM coaching in P&amp;T Colony,
                 Lalpur, Ranchi. Small batches, senior faculty and a parent-first attendance safety
                 loop.
@@ -856,25 +858,25 @@ export default function LandingPage(): JSX.Element {
 
             <div className="grid grid-cols-2 gap-8 text-xs sm:grid-cols-3">
               <div>
-                <p className="font-bold uppercase tracking-wider text-slate-700">Explore</p>
-                <ul className="mt-3 space-y-2 text-slate-500">
+                <p className="font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Explore</p>
+                <ul className="mt-3 space-y-2 text-slate-500 dark:text-slate-400">
                   <li>
-                    <a href="#courses" className="transition hover:text-slate-900">
+                    <a href="#courses" className="transition hover:text-slate-900 dark:hover:text-white">
                       Courses
                     </a>
                   </li>
                   <li>
-                    <a href="#safety" className="transition hover:text-slate-900">
+                    <a href="#safety" className="transition hover:text-slate-900 dark:hover:text-white">
                       Parent safety
                     </a>
                   </li>
                   <li>
-                    <a href="#reviews" className="transition hover:text-slate-900">
+                    <a href="#reviews" className="transition hover:text-slate-900 dark:hover:text-white">
                       Reviews
                     </a>
                   </li>
                   <li>
-                    <a href="#demo" className="transition hover:text-slate-900">
+                    <a href="#demo" className="transition hover:text-slate-900 dark:hover:text-white">
                       Book a demo
                     </a>
                   </li>
@@ -882,20 +884,20 @@ export default function LandingPage(): JSX.Element {
               </div>
 
               <div>
-                <p className="font-bold uppercase tracking-wider text-slate-700">Team</p>
-                <ul className="mt-3 space-y-2 text-slate-500">
+                <p className="font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Team</p>
+                <ul className="mt-3 space-y-2 text-slate-500 dark:text-slate-400">
                   <li>
-                    <Link to="/login" className="transition hover:text-slate-900">
+                    <Link to="/login" className="transition hover:text-slate-900 dark:hover:text-white">
                       Staff login
                     </Link>
                   </li>
                   <li>
-                    <Link to="/app/teacher" className="transition hover:text-slate-900">
+                    <Link to="/app/teacher" className="transition hover:text-slate-900 dark:hover:text-white">
                       Teacher attendance
                     </Link>
                   </li>
                   <li>
-                    <Link to="/app/dashboard" className="transition hover:text-slate-900">
+                    <Link to="/app/dashboard" className="transition hover:text-slate-900 dark:hover:text-white">
                       Admin dashboard
                     </Link>
                   </li>
@@ -903,16 +905,16 @@ export default function LandingPage(): JSX.Element {
               </div>
 
               <div className="col-span-2 sm:col-span-1">
-                <p className="font-bold uppercase tracking-wider text-slate-700">Contact</p>
-                <ul className="mt-3 space-y-2 text-slate-500">
+                <p className="font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Contact</p>
+                <ul className="mt-3 space-y-2 text-slate-500 dark:text-slate-400">
                   <li>{BUSINESS.address}</li>
                   <li>
-                    <a href={`tel:${BUSINESS.phoneTel}`} className="font-semibold text-slate-700">
+                    <a href={`tel:${BUSINESS.phoneTel}`} className="font-semibold text-slate-700 dark:text-slate-200">
                       {BUSINESS.phoneDisplay}
                     </a>
                   </li>
                   <li>
-                    <a href={`mailto:${BUSINESS.email}`} className="transition hover:text-slate-900">
+                    <a href={`mailto:${BUSINESS.email}`} className="transition hover:text-slate-900 dark:hover:text-white">
                       {BUSINESS.email}
                     </a>
                   </li>
@@ -921,11 +923,14 @@ export default function LandingPage(): JSX.Element {
             </div>
           </div>
 
-          <div className="mt-8 flex flex-col gap-2 border-t border-slate-200 pt-4 text-[11px] text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-8 flex flex-col gap-3 border-t border-slate-200 pt-4 text-[11px] text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
             <p>
               © {new Date().getFullYear()} {BUSINESS.name}. Lalpur, Ranchi.
             </p>
-            <p className="font-mono">Attendance safety loop · Phase 1 foundation</p>
+            <div className="flex items-center gap-3">
+              <span className="font-mono">Theme preference:</span>
+              <ThemeToggle variant="segmented" />
+            </div>
           </div>
         </div>
       </footer>
