@@ -278,8 +278,8 @@ export default function DashboardLayout(): JSX.Element {
 
       {/* Main column */}
       <div className="flex min-h-screen w-full flex-col lg:pl-64">
-        {/* Top Header */}
-        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+        {/* Top Header - relative so it scrolls away naturally on mobile and does not lock */}
+        <header className="relative z-30 border-b border-slate-200 bg-white transition-colors duration-150 dark:border-slate-800 dark:bg-slate-900">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
             <div className="flex min-w-0 items-center gap-2.5 lg:hidden">
               <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-brand-900 font-display text-[10px] font-extrabold text-white dark:bg-blue-600">

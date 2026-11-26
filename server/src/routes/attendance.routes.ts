@@ -14,26 +14,28 @@ interface TeacherBatchRow {
 
 export const attendanceRouter = Router();
 
-// Teacher can only submit attendance for their own batches
+// Only teachers can submit or edit attendance, strictly for their assigned batches
 const teacherBatchOwnership = async (req: any, _res: any, next: any) => {
   const auth = req.auth;
-  if (auth.role === 'TEACHER') {
-    const db = req.db;
-    const batchId = req.body.batchId;
+  if (auth.role !== 'TEACHER') {
+    return next(new AppError(403, 'FORBIDDEN', 'Only assigned teachers can record or edit attendance'));
+  }
 
-    if (!batchId) {
-      return next(new AppError(422, 'BATCH_ID_REQUIRED', 'batchId is required'));
-    }
+  const db = req.db;
+  const batchId = req.body.batchId;
 
-    const result = await db.query(
-      `SELECT teacher_id FROM batches WHERE batch_id = $1 AND institute_id = $2`,
-      [batchId, db.instituteId],
-    );
+  if (!batchId) {
+    return next(new AppError(422, 'BATCH_ID_REQUIRED', 'batchId is required'));
+  }
 
-    const batch = result.rows[0] as TeacherBatchRow | undefined;
-    if (!batch || batch.teacher_id !== auth.userId) {
-      return next(new AppError(403, 'FORBIDDEN', 'Teachers can only submit attendance for their assigned batches'));
-    }
+  const result = await db.query(
+    `SELECT teacher_id FROM batches WHERE batch_id = $1 AND institute_id = $2`,
+    [batchId, db.instituteId],
+  );
+
+  const batch = result.rows[0] as TeacherBatchRow | undefined;
+  if (!batch || batch.teacher_id !== auth.userId) {
+    return next(new AppError(403, 'FORBIDDEN', 'Teachers can only submit attendance for their assigned batches'));
   }
   next();
 };
@@ -57,7 +59,7 @@ const attendanceSubmissionSchema = z.object({
 
 attendanceRouter.post(
   '/submit',
-  roleGuard('SUPER_ADMIN', 'INSTITUTE_ADMIN', 'RECEPTIONIST', 'TEACHER'),
+  roleGuard('TEACHER'),
   teacherBatchOwnership,
   asyncHandler(async (req, res) => {
     const auth = requireAuthContext(req.auth);

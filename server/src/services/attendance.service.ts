@@ -8,6 +8,8 @@ import type { TenantDb } from '../types/tenant.js';
 import { getTenantDate } from '../utils/datetime.js';
 import { AppError } from '../utils/errors.js';
 import { enqueueVerifyAbsentees } from '../queues/attendanceQueue.js';
+import { sendAttendanceCorrectionNotice } from './whatsapp.service.js';
+import { logger } from '../utils/logger.js';
 
 const ISO_TIMESTAMP = 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"';
 
@@ -15,6 +17,7 @@ interface BatchLockRow {
   batch_id: string;
   name: string;
   teacher_id: string | null;
+  teacher_name?: string | null;
   scheduled_start_time: string;
   is_active: boolean | null;
 }
@@ -94,9 +97,11 @@ export async function submitAttendance(
           b.batch_id,
           b.name,
           b.teacher_id,
+          u.full_name AS teacher_name,
           TO_CHAR(b.scheduled_start_time, 'HH24:MI:SS') AS scheduled_start_time,
           b.is_active
          FROM batches b
+         LEFT JOIN users u ON u.user_id = b.teacher_id
         WHERE b.institute_id = $1
           AND b.batch_id = $2
         FOR UPDATE`,
@@ -109,7 +114,15 @@ export async function submitAttendance(
       throw new AppError(404, 'BATCH_NOT_FOUND', 'This batch does not exist in your institute.');
     }
 
-    if (auth.role === 'TEACHER' && batch.teacher_id !== auth.userId) {
+    if (auth.role !== 'TEACHER') {
+      throw new AppError(
+        403,
+        'FORBIDDEN',
+        'Only assigned teachers can record or edit attendance.',
+      );
+    }
+
+    if (batch.teacher_id !== auth.userId) {
       throw new AppError(
         403,
         'FORBIDDEN',
@@ -199,33 +212,108 @@ export async function submitAttendance(
         [db.instituteId, existingSession.session_id],
       );
 
-      const persisted = new Map<string, 'PRESENT' | 'ABSENT'>(
+      const persisted = new Map<string, string>(
         logsResult.rows.map((row) => [
           row.student_id,
-          row.status === 'PRESENT' ? 'PRESENT' : 'ABSENT',
+          row.status,
         ]),
       );
 
       const isIdenticalReplay =
         persisted.size === input.records.length &&
-        input.records.every((record) => persisted.get(record.studentId) === record.status);
+        input.records.every((record) => {
+          const currentStatus = persisted.get(record.studentId);
+          const isCurrentPresent = currentStatus === 'PRESENT';
+          const isRecordPresent = record.status === 'PRESENT';
+          return isCurrentPresent === isRecordPresent;
+        });
 
-      if (!isIdenticalReplay) {
-        throw new AppError(
-          409,
-          'ATTENDANCE_LOCKED',
-          'Attendance for this batch and date is already locked. Ask an administrator to make an audited correction.',
+      if (isIdenticalReplay) {
+        return buildSummary(existingSession, {
+          batchId: batch.batch_id,
+          batchName: batch.name,
+          attendanceDate,
+          totalStudents: persisted.size,
+          presentCount,
+          absentCount,
+          idempotentReplay: true,
+        });
+      }
+
+      // Teacher is updating / correcting attendance
+      // Identify students whose status was previously ABSENT (not PRESENT) and is now marked PRESENT
+      const correctedAbsentStudentIds: string[] = [];
+      for (const record of input.records) {
+        const prevStatus = persisted.get(record.studentId);
+        if (prevStatus && prevStatus !== 'PRESENT' && record.status === 'PRESENT') {
+          correctedAbsentStudentIds.push(record.studentId);
+        }
+      }
+
+      // Update attendance_logs for each student
+      for (const record of input.records) {
+        const newDbStatus = record.status === 'PRESENT' ? 'PRESENT' : 'ABSENT_UNCONFIRMED';
+        await client.query(
+          `UPDATE attendance_logs
+              SET status = $1::attendance_status
+            WHERE institute_id = $2
+              AND session_id = $3
+              AND student_id = $4`,
+          [newDbStatus, db.instituteId, existingSession.session_id, record.studentId],
         );
+      }
+
+      // Update attendance_sessions count and marked_at
+      await client.query(
+        `UPDATE attendance_sessions
+            SET present_count = $1,
+                absent_count = $2,
+                marked_at = NOW()
+          WHERE institute_id = $3
+            AND session_id = $4`,
+        [presentCount, absentCount, db.instituteId, existingSession.session_id],
+      );
+
+      // If any students were corrected from ABSENT to PRESENT, send apology follow-up notices ONLY to their parents
+      if (correctedAbsentStudentIds.length > 0) {
+        const studentsQuery = await client.query<{
+          student_id: string;
+          full_name: string;
+          parent_whatsapp: string;
+        }>(
+          `SELECT student_id, full_name, parent_whatsapp
+             FROM students
+            WHERE institute_id = $1
+              AND student_id = ANY($2::uuid[])`,
+          [db.instituteId, correctedAbsentStudentIds],
+        );
+
+        for (const student of studentsQuery.rows) {
+          try {
+            await sendAttendanceCorrectionNotice(
+              db.instituteId,
+              student.parent_whatsapp,
+              student.full_name,
+              batch.name,
+              batch.teacher_name ?? undefined,
+            );
+          } catch (err) {
+            logger.error('Failed to send attendance correction apology message', {
+              studentId: student.student_id,
+              error: err,
+            });
+          }
+        }
       }
 
       return buildSummary(existingSession, {
         batchId: batch.batch_id,
         batchName: batch.name,
         attendanceDate,
-        totalStudents: persisted.size,
+        totalStudents: input.records.length,
         presentCount,
         absentCount,
-        idempotentReplay: true,
+        idempotentReplay: false,
       });
     }
 

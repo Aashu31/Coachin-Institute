@@ -103,6 +103,7 @@ interface ConfirmDialogProps {
   open: boolean;
   online: boolean;
   submitting: boolean;
+  isEditMode?: boolean;
   batchName: string;
   presentCount: number;
   absentCount: number;
@@ -115,6 +116,7 @@ function ConfirmDialog({
   open,
   online,
   submitting,
+  isEditMode,
   batchName,
   presentCount,
   absentCount,
@@ -169,7 +171,7 @@ function ConfirmDialog({
           </span>
           <div>
             <h2 id="attendance-confirm-title" className="font-display text-lg font-bold text-slate-900">
-              Lock this attendance sheet?
+              {isEditMode ? 'Update attendance corrections?' : 'Lock this attendance sheet?'}
             </h2>
             <p id="attendance-confirm-description" className="mt-1 text-xs leading-relaxed text-slate-500">
               {batchName}
@@ -215,7 +217,9 @@ function ConfirmDialog({
 
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
           <p className="text-[11px] leading-relaxed text-amber-900">
-            {online
+            {isEditMode
+              ? 'Any student corrected from Absent to Present will automatically receive an apology correction notice via WhatsApp to their parents.'
+              : online
               ? 'Once submitted, this sheet is locked for teachers. In Phase 2, absent parents receive a WhatsApp check at T+10.'
               : 'You are offline. This sheet will be stored on this phone and synced automatically when the connection returns.'}
           </p>
@@ -232,10 +236,10 @@ function ConfirmDialog({
             {submitting ? (
               <>
                 <Spinner />
-                {online ? 'Locking…' : 'Saving…'}
+                {online ? (isEditMode ? 'Updating…' : 'Locking…') : 'Saving…'}
               </>
             ) : online ? (
-              'Confirm & lock attendance'
+              isEditMode ? 'Confirm & update corrections' : 'Confirm & lock attendance'
             ) : (
               'Save offline & queue sync'
             )}
@@ -272,6 +276,7 @@ export default function TeacherAttendancePage(): JSX.Element {
   const [marks, setMarks] = useState<Record<string, AttendanceMark>>({});
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -373,6 +378,7 @@ export default function TeacherAttendancePage(): JSX.Element {
         clearDraft(batchId, result.attendanceDate);
         setDraftRestored(false);
         setDraftSavedAt(null);
+        setIsEditing(false);
       } else {
         setDraftRestored(Boolean(draft && Object.keys(draft.marks).length > 0));
         setDraftSavedAt(draft?.updatedAt ?? null);
@@ -523,13 +529,20 @@ export default function TeacherAttendancePage(): JSX.Element {
     ? roster.students.filter((student) => (marks[student.studentId] ?? 'PRESENT') === 'ABSENT')
     : [];
 
-  const locked = Boolean(roster?.existingAttendance || success || queuedOffline);
+  const isTeacher = user?.role === 'TEACHER';
+  const locked = Boolean(
+    !isTeacher ||
+      (roster?.existingAttendance && !isEditing) ||
+      (!isEditing && success) ||
+      queuedOffline,
+  );
   const attendanceDate = roster?.attendanceDate ?? batchesData?.today ?? todayInTenantTimezone();
   const scheduledBatches = batchesData?.batches.filter((batch) => batch.isScheduledToday) ?? [];
   const otherBatches = batchesData?.batches.filter((batch) => !batch.isScheduledToday) ?? [];
 
   function selectBatch(nextBatchId: string): void {
     setSelectedBatchId(nextBatchId);
+    setIsEditing(false);
     setSuccess(null);
     setSubmitError(null);
     setQueuedOffline(false);
@@ -591,6 +604,7 @@ export default function TeacherAttendancePage(): JSX.Element {
     try {
       const result = await api.submitAttendance(payload);
       clearDraft(roster.batch.batchId, roster.attendanceDate);
+      setIsEditing(false);
       setSuccess(result.attendance);
       setConfirmOpen(false);
       setDraftSavedAt(null);
@@ -848,24 +862,74 @@ export default function TeacherAttendancePage(): JSX.Element {
           </div>
         ) : null}
 
-        {roster?.existingAttendance ? (
-          <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-3">
+        {!isTeacher ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
             <div className="flex items-start gap-2.5">
-              <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-slate-900 text-white">
+              <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-amber-600 text-white">
                 <LockIcon className="h-4 w-4" />
               </span>
               <div>
-                <p className="text-sm font-semibold text-slate-900">
-                  Attendance locked for {formatDateLabel(roster.attendanceDate)}
+                <p className="text-sm font-semibold text-amber-900">
+                  View-Only Mode ({user?.role ?? 'Staff'})
                 </p>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  {roster.existingAttendance.presentCount} present ·{' '}
-                  {roster.existingAttendance.absentCount} absent · submitted{' '}
-                  {formatClockTime(roster.existingAttendance.submittedAt)}
+                <p className="mt-0.5 text-xs text-amber-800">
+                  Attendance recording and corrections are strictly restricted to assigned teachers. Staff and administrators have view-only access.
                 </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                  Teachers cannot edit a locked sheet. An institute admin or front-desk operator can
-                  make an audited correction in a later phase.
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {roster?.existingAttendance ? (
+          <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-slate-900 text-white">
+                  <LockIcon className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Attendance {isEditing ? 'in correction mode' : 'locked'} for {formatDateLabel(roster.attendanceDate)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {roster.existingAttendance.presentCount} present ·{' '}
+                    {roster.existingAttendance.absentCount} absent · submitted{' '}
+                    {formatClockTime(roster.existingAttendance.submittedAt)}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                    {isTeacher
+                      ? isEditing
+                        ? 'Tap any student to correct their status. If any student was previously marked absent and corrected to PRESENT, an apology message will automatically be sent to their parents.'
+                        : 'Accidentally marked a student absent? As the teacher, click Edit Sheet to correct marks.'
+                      : 'Attendance is locked. Only the assigned teacher can edit attendance.'}
+                  </p>
+                </div>
+              </div>
+              {isTeacher && !isEditing ? (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="btn-secondary flex-none !min-h-9 !px-3 !py-1 text-xs font-semibold"
+                >
+                  Edit sheet
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {isEditing ? (
+          <div className="animate-toast-in rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <div className="flex items-start gap-2.5">
+              <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-blue-600 text-white">
+                <CheckIcon className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-blue-900">
+                  Editing Attendance & Correction Mode
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-blue-800">
+                  You can now toggle student statuses below. When you click Save & Update, any student who was previously marked absent and is now marked PRESENT will automatically receive an apology notification on WhatsApp for their parents.
                 </p>
               </div>
             </div>
@@ -1046,11 +1110,56 @@ export default function TeacherAttendancePage(): JSX.Element {
               </div>
             </div>
 
-            {locked ? (
+            {!isTeacher ? (
               <span className="inline-flex min-h-11 flex-none items-center gap-1.5 rounded-xl bg-slate-100 px-3 text-xs font-bold text-slate-600">
                 <LockIcon className="h-4 w-4" />
-                {queuedOffline ? 'Queued' : 'Locked'}
+                View only
               </span>
+            ) : isEditing ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (roster) {
+                      const reset: Record<string, AttendanceMark> = {};
+                      for (const student of roster.students) {
+                        reset[student.studentId] = student.status ?? 'PRESENT';
+                      }
+                      setMarks(reset);
+                    }
+                    setIsEditing(false);
+                  }}
+                  className="btn-secondary !min-h-11 !px-3 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubmitError(null);
+                    setConfirmOpen(true);
+                  }}
+                  className="btn-primary !min-h-11 !px-4 text-xs font-semibold sm:text-sm"
+                >
+                  Save & update
+                </button>
+              </div>
+            ) : locked ? (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex min-h-11 flex-none items-center gap-1.5 rounded-xl bg-slate-100 px-3 text-xs font-bold text-slate-600">
+                  <LockIcon className="h-4 w-4" />
+                  {queuedOffline ? 'Queued' : 'Locked'}
+                </span>
+                {roster?.existingAttendance ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="btn-secondary !min-h-11 !px-3 text-xs font-semibold"
+                  >
+                    Edit
+                  </button>
+                ) : null}
+              </div>
             ) : (
               <button
                 type="button"
@@ -1071,6 +1180,7 @@ export default function TeacherAttendancePage(): JSX.Element {
         open={confirmOpen}
         online={online}
         submitting={submitting}
+        isEditMode={isEditing}
         batchName={activeBatch?.name ?? 'Attendance sheet'}
         presentCount={presentCount}
         absentCount={absentCount}

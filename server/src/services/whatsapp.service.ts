@@ -137,6 +137,64 @@ export async function sendWhatsAppVerification(
   return messageId;
 }
 
+export async function sendAttendanceCorrectionNotice(
+  instituteId: string,
+  parentWhatsapp: string,
+  studentName: string,
+  batchName: string,
+  teacherName?: string,
+): Promise<string> {
+  const cleanNumber = parentWhatsapp.replace(/^\+/, '');
+  const teacherSign = teacherName ? ` (${teacherName})` : '';
+  const messageText = `Attendance Correction Notice - P.D.O Classes: Dear Parent, due to an accidental clerical mistake by the teacher${teacherSign}, your ward ${studentName} was previously marked absent. Their attendance has now been corrected to PRESENT for today's ${batchName} class. We sincerely apologize for the inconvenience and will ensure greater care in the future. - P.D.O Classes`;
+
+  if (env.WHATSAPP_MOCK_MODE) {
+    const mockMessageId = `mock_corr_${Date.now()}_${cleanNumber.slice(-4)}`;
+    logger.info('[MOCK WHATSAPP] Attendance correction apology message sent', {
+      instituteId,
+      to: parentWhatsapp,
+      studentName,
+      batchName,
+      messageId: mockMessageId,
+      messageText,
+    });
+
+    const deepLink = buildWhatsAppUrl(cleanNumber, messageText);
+    logger.info('[MOCK WHATSAPP] Deep link for correction notice', { deepLink });
+    return mockMessageId;
+  }
+
+  const url = `https://graph.facebook.com/v20.0/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.WHATSAPP_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: cleanNumber,
+      type: 'text',
+      text: { body: messageText },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    logger.warn('WhatsApp API correction notice error', { status: response.status, errorBody });
+    return `error_${response.status}`;
+  }
+
+  const data = (await response.json()) as { messages?: Array<{ id: string }> };
+  const messageId = data.messages?.[0]?.id || `corr_${Date.now()}`;
+  logger.info('WhatsApp attendance correction notice sent successfully', {
+    instituteId,
+    to: parentWhatsapp,
+    messageId,
+  });
+  return messageId;
+}
+
 function formattedTime(classStartTime: string): string {
   return new Date(classStartTime).toLocaleTimeString('en-IN', {
     hour: '2-digit',
