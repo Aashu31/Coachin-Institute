@@ -45,6 +45,42 @@ function assertValidDaysOfWeek(days: number[]): void {
 /* Leads                                                                       */
 /* ========================================================================== */
 
+interface LeadRow {
+  lead_id: string;
+  student_name: string;
+  whatsapp_number: string;
+  target_course: LeadTargetCourse;
+  preferred_slot: any;
+  status: any;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function toAdminLeadDto(row: LeadRow): AdminLeadDto {
+  return {
+    leadId: row.lead_id,
+    studentName: row.student_name,
+    whatsappNumber: row.whatsapp_number,
+    targetCourse: row.target_course,
+    preferredSlot: row.preferred_slot,
+    status: row.status,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    // snake_case aliases for backwards compatibility
+    ...({
+      lead_id: row.lead_id,
+      student_name: row.student_name,
+      whatsapp_number: row.whatsapp_number,
+      target_course: row.target_course,
+      preferred_slot: row.preferred_slot,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    } as any),
+  };
+}
+
 export async function listLeads(
   db: TenantDb,
   page = 1,
@@ -57,11 +93,11 @@ export async function listLeads(
   if (status) params.push(status);
 
   const [dataResult, countResult] = await Promise.all([
-    db.query<AdminLeadDto>(
+    db.query<LeadRow>(
       `SELECT l.lead_id, l.student_name, l.whatsapp_number, l.target_course, l.preferred_slot,
               l.status, l.notes,
               TO_CHAR(l.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at,
-              TO_CHAR(l.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS updated_at
+              TO_CHAR(COALESCE(l.updated_at, l.created_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS updated_at
          FROM leads l
         WHERE l.institute_id = $1
           ${statusFilter}
@@ -76,7 +112,7 @@ export async function listLeads(
   ]);
 
   return {
-    leads: dataResult.rows,
+    leads: dataResult.rows.map(toAdminLeadDto),
     total: Number(countResult.rows[0]?.total ?? '0'),
     page,
     pageSize,
@@ -90,7 +126,7 @@ export async function updateLeadStatus(
 ): Promise<AdminLeadDto> {
   assertValidLeadStatus(input.status);
 
-  const result = await db.query<AdminLeadDto>(
+  const result = await db.query<LeadRow>(
     `UPDATE leads
         SET status = $1,
             notes = COALESCE($2, notes),
@@ -108,15 +144,64 @@ export async function updateLeadStatus(
   if (!lead) {
     throw new AppError(404, 'LEAD_NOT_FOUND', 'Lead not found');
   }
-  return lead;
+  return toAdminLeadDto(lead);
 }
 
 /* ========================================================================== */
 /* Batches                                                                      */
 /* ========================================================================== */
 
+interface BatchRow {
+  batch_id: string;
+  name: string;
+  target_exam: string;
+  teacher_id: string | null;
+  teacher_name?: string | null;
+  scheduled_start_time: string;
+  scheduled_end_time: string;
+  days_of_week: number[];
+  room_number: string | null;
+  is_active: boolean;
+  student_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+function toAdminBatchDto(row: BatchRow): AdminBatchDto {
+  return {
+    batchId: row.batch_id,
+    name: row.name,
+    targetExam: row.target_exam,
+    teacherId: row.teacher_id,
+    teacherName: row.teacher_name ?? null,
+    scheduledStartTime: row.scheduled_start_time,
+    scheduledEndTime: row.scheduled_end_time,
+    daysOfWeek: row.days_of_week ?? [],
+    roomNumber: row.room_number,
+    isActive: row.is_active,
+    studentCount: Number(row.student_count ?? 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    // snake_case aliases for backwards compatibility
+    ...({
+      batch_id: row.batch_id,
+      target_exam: row.target_exam,
+      teacher_id: row.teacher_id,
+      teacher_name: row.teacher_name ?? null,
+      scheduled_start_time: row.scheduled_start_time,
+      scheduled_end_time: row.scheduled_end_time,
+      days_of_week: row.days_of_week ?? [],
+      room_number: row.room_number,
+      is_active: row.is_active,
+      student_count: Number(row.student_count ?? 0),
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    } as any),
+  };
+}
+
 export async function listBatchesAdmin(db: TenantDb): Promise<BatchListResultAdmin> {
-  const result = await db.query<AdminBatchDto>(
+  const result = await db.query<BatchRow>(
     `SELECT b.batch_id, b.name, b.target_exam, b.teacher_id, u.full_name AS teacher_name,
             TO_CHAR(b.scheduled_start_time, 'HH24:MI:SS') AS scheduled_start_time,
             TO_CHAR(b.scheduled_end_time, 'HH24:MI:SS') AS scheduled_end_time,
@@ -132,7 +217,7 @@ export async function listBatchesAdmin(db: TenantDb): Promise<BatchListResultAdm
     [db.instituteId],
   );
 
-  return { batches: result.rows, total: result.rows.length ?? 0 };
+  return { batches: result.rows.map(toAdminBatchDto), total: result.rows.length ?? 0 };
 }
 
 export async function createBatch(db: TenantDb, input: CreateBatchInput): Promise<AdminBatchDto> {
@@ -151,7 +236,7 @@ export async function createBatch(db: TenantDb, input: CreateBatchInput): Promis
     }
   }
 
-  const result = await db.query<AdminBatchDto>(
+  const result = await db.query<BatchRow>(
     `INSERT INTO batches (
         institute_id, name, target_exam, teacher_id,
         scheduled_start_time, scheduled_end_time, days_of_week, room_number, is_active
@@ -182,7 +267,7 @@ export async function createBatch(db: TenantDb, input: CreateBatchInput): Promis
   if (!batch) {
     throw new AppError(500, 'BATCH_CREATE_FAILED', 'Failed to create batch');
   }
-  return batch;
+  return toAdminBatchDto(batch);
 }
 
 export async function updateBatch(
@@ -242,7 +327,7 @@ export async function updateBatch(
   fields.push(`updated_at = CURRENT_TIMESTAMP`);
   values.push(batchId, db.instituteId);
 
-  const result = await db.query<AdminBatchDto>(
+  const result = await db.query<BatchRow>(
     `UPDATE batches
         SET ${fields.join(', ')}
       WHERE batch_id = $${paramIndex} AND institute_id = $${paramIndex + 1}
@@ -261,12 +346,56 @@ export async function updateBatch(
   if (result.rows.length === 0) {
     throw new AppError(404, 'BATCH_NOT_FOUND', 'Batch not found');
   }
-  return result.rows[0]!;
+  return toAdminBatchDto(result.rows[0]!);
 }
 
 /* ========================================================================== */
 /* Students                                                                     */
 /* ========================================================================== */
+
+interface StudentRow {
+  student_id: string;
+  full_name: string;
+  roll_number: string;
+  parent_name: string;
+  parent_whatsapp: string;
+  parent_secondary_phone: string | null;
+  batch_id: string | null;
+  batch_name?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+function toAdminStudentDto(row: StudentRow): AdminStudentDto {
+  return {
+    studentId: row.student_id,
+    fullName: row.full_name,
+    rollNumber: row.roll_number,
+    parentName: row.parent_name,
+    parentWhatsapp: row.parent_whatsapp,
+    parentSecondaryPhone: row.parent_secondary_phone,
+    batchId: row.batch_id,
+    batchName: row.batch_name ?? null,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    // snake_case aliases for backwards compatibility
+    ...({
+      student_id: row.student_id,
+      full_name: row.full_name,
+      roll_number: row.roll_number,
+      parent_name: row.parent_name,
+      parent_whatsapp: row.parent_whatsapp,
+      parent_secondary_phone: row.parent_secondary_phone,
+      batch_id: row.batch_id,
+      batch_name: row.batch_name ?? null,
+      is_active: row.is_active,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    } as any),
+  };
+}
 
 export async function listStudents(
   db: TenantDb,
@@ -280,7 +409,7 @@ export async function listStudents(
   if (batchId) params.push(batchId);
 
   const [dataResult, countResult] = await Promise.all([
-    db.query<AdminStudentDto>(
+    db.query<StudentRow>(
       `SELECT s.student_id, s.full_name, s.roll_number, s.parent_name, s.parent_whatsapp,
               s.parent_secondary_phone, s.batch_id, b.name AS batch_name, s.is_active,
               TO_CHAR(s.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at,
@@ -300,7 +429,7 @@ export async function listStudents(
   ]);
 
   return {
-    students: dataResult.rows,
+    students: dataResult.rows.map(toAdminStudentDto),
     total: Number(countResult.rows[0]?.total ?? '0'),
     page,
     pageSize,
@@ -323,7 +452,7 @@ export async function createStudent(db: TenantDb, input: CreateStudentInput): Pr
     }
   }
 
-  const result = await db.query<AdminStudentDto>(
+  const result = await db.query<StudentRow>(
     `INSERT INTO students (
         institute_id, batch_id, full_name, roll_number,
         parent_name, parent_whatsapp, parent_secondary_phone, is_active
@@ -358,7 +487,7 @@ export async function createStudent(db: TenantDb, input: CreateStudentInput): Pr
   if (!student) {
     throw new AppError(500, 'STUDENT_CREATE_FAILED', 'Failed to create student');
   }
-  return student;
+  return toAdminStudentDto(student);
 }
 
 export async function updateStudent(
@@ -423,7 +552,7 @@ export async function updateStudent(
   fields.push(`updated_at = CURRENT_TIMESTAMP`);
   values.push(studentId, db.instituteId);
 
-  const result = await db.query<AdminStudentDto>(
+  const result = await db.query<StudentRow>(
     `UPDATE students
         SET ${fields.join(', ')}
       WHERE student_id = $${paramIndex} AND institute_id = $${paramIndex + 1}
@@ -441,7 +570,7 @@ export async function updateStudent(
   if (!student) {
     throw new AppError(404, 'STUDENT_NOT_FOUND', 'Student not found');
   }
-  return student;
+  return toAdminStudentDto(student);
 }
 
 export async function bulkImportStudents(

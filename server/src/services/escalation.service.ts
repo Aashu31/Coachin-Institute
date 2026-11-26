@@ -2,22 +2,58 @@ import type { TenantDb } from '../types/tenant.js';
 import { logger } from '../utils/logger.js';
 
 export interface EscalationTaskDto {
+  taskId?: string;
+  instituteId?: string;
+  logId?: string;
+  studentId?: string;
+  priority: string;
+  triggeredAt?: string;
+  resolvedAt?: string | null;
+  resolvedBy?: string | null;
+  callOutcome?: string | null;
+  staffNotes?: string | null;
+  studentName?: string;
+  parentWhatsapp?: string;
+  studentRollNumber?: string;
+  rollNumber?: string;
+  batchName?: string;
+  batchId?: string;
+  status?: string;
+
   task_id: string;
   institute_id: string;
   log_id: string;
   student_id: string;
-  priority: string;
   triggered_at: string;
   resolved_at: string | null;
   resolved_by: string | null;
   call_outcome: string | null;
   staff_notes: string | null;
   student_name?: string;
-  parent_whatsapp?: string;
-  roll_number?: string;
   batch_name?: string;
-  batch_id?: string;
-  status?: string;
+}
+
+function toEscalationTaskDto(row: any): EscalationTaskDto {
+  return {
+    ...row,
+    taskId: row.task_id,
+    instituteId: row.institute_id,
+    logId: row.log_id,
+    studentId: row.student_id,
+    studentName: row.student_name ?? row.studentName,
+    studentRollNumber: row.roll_number ?? row.studentRollNumber,
+    rollNumber: row.roll_number,
+    parentWhatsapp: row.parent_whatsapp ?? row.parentWhatsapp,
+    batchId: row.batch_id ?? row.batchId,
+    batchName: row.batch_name ?? row.batchName,
+    priority: row.priority,
+    triggeredAt: row.triggered_at,
+    resolvedAt: row.resolved_at,
+    resolvedBy: row.resolved_by,
+    callOutcome: row.call_outcome,
+    staffNotes: row.staff_notes,
+    status: row.status,
+  };
 }
 
 export async function createEscalationTask(
@@ -56,7 +92,7 @@ export async function createEscalationTask(
     instituteId,
   });
 
-  return task;
+  return toEscalationTaskDto(task);
 }
 
 export async function resolveEscalationTask(
@@ -112,7 +148,7 @@ export async function resolveEscalationTask(
     resolvedBy,
   });
 
-  return task;
+  return toEscalationTaskDto(task);
 }
 
 export async function getActiveEscalationTasks(
@@ -147,5 +183,5 @@ export async function getActiveEscalationTasks(
     [db.instituteId],
   );
 
-  return result.rows || [];
+  return (result.rows || []).map(toEscalationTaskDto);
 }
