@@ -1,9 +1,8 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { ApiError, api } from '../lib/api';
+import ContactForm from '../components/ContactForm';
 import { BUSINESS, DEMO_WHATSAPP_MESSAGE, whatsappUrl } from '../lib/business';
-import type { DemoLeadResult, LeadPreferredSlot, LeadTargetCourse } from '../lib/types';
 
 type TrackId = 'cat' | 'pcm';
 
@@ -193,61 +192,10 @@ function RatingBadge({ dark = false }: { dark?: boolean }): JSX.Element {
 
 export default function LandingPage(): JSX.Element {
   const [activeTrack, setActiveTrack] = useState<TrackId>('cat');
-  const [studentName, setStudentName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [targetCourse, setTargetCourse] = useState<LeadTargetCourse>('CAT');
-  const [preferredSlot, setPreferredSlot] = useState<LeadPreferredSlot>('EVENING');
-  const [notes, setNotes] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [booking, setBooking] = useState<DemoLeadResult | null>(null);
-
   const track = TRACKS[activeTrack];
 
   function selectTrack(next: TrackId): void {
     setActiveTrack(next);
-    setTargetCourse(next === 'cat' ? 'CAT' : 'CLASS_12_PCM');
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    setFormError(null);
-
-    if (studentName.trim().length < 2) {
-      setFormError('Please enter the student’s name.');
-      return;
-    }
-
-    if (phone.replace(/\D/g, '').length < 10) {
-      setFormError('Please enter a valid 10-digit mobile number.');
-      return;
-    }
-
-    setSubmitting(true);
-
-    try {
-      const result = await api.createDemoLead({
-        studentName: studentName.trim(),
-        phone: phone.trim(),
-        targetCourse,
-        preferredSlot,
-        notes: notes.trim() ? notes.trim() : undefined,
-        instituteSlug: BUSINESS.instituteSlug,
-      });
-
-      setBooking(result);
-      setStudentName('');
-      setPhone('');
-      setNotes('');
-    } catch (error) {
-      setFormError(
-        error instanceof ApiError
-          ? error.message
-          : 'We could not save your booking. Please call us on ' + BUSINESS.phoneDisplay + '.',
-      );
-    } finally {
-      setSubmitting(false);
-    }
   }
 
   return (
@@ -775,160 +723,7 @@ export default function LandingPage(): JSX.Element {
               </div>
 
               <div className="p-5 sm:p-6">
-                {booking ? (
-                  <div className="animate-fade-in">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-700">
-                      <CheckIcon className="h-6 w-6" />
-                    </div>
-                    <h3 className="mt-4 font-display text-xl font-bold text-slate-900">
-                      Demo request received.
-                    </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{booking.message}</p>
-
-                    <dl className="mt-5 grid gap-2 rounded-xl bg-slate-50 p-4 text-xs sm:grid-cols-2">
-                      <div>
-                        <dt className="font-semibold uppercase tracking-wider text-slate-500">
-                          Student
-                        </dt>
-                        <dd className="mt-0.5 font-semibold text-slate-900">{booking.studentName}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold uppercase tracking-wider text-slate-500">
-                          Reference
-                        </dt>
-                        <dd className="mt-0.5 font-mono text-slate-900">
-                          {booking.leadId.slice(0, 8).toUpperCase()}
-                        </dd>
-                      </div>
-                    </dl>
-
-                    <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                      <a
-                        href={booking.whatsappUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn-primary !bg-green-600 hover:!bg-green-700"
-                      >
-                        <WhatsAppIcon className="h-4 w-4" />
-                        Message P.D.O Classes
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => setBooking(null)}
-                        className="btn-secondary"
-                      >
-                        Book another student
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4" noValidate>
-                    <div>
-                      <label htmlFor="student-name" className="field-label">
-                        Student name
-                      </label>
-                      <input
-                        id="student-name"
-                        name="studentName"
-                        type="text"
-                        autoComplete="name"
-                        required
-                        value={studentName}
-                        onChange={(event) => setStudentName(event.target.value)}
-                        placeholder="e.g. Aditya Mahto"
-                        className="input-field"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="phone" className="field-label">
-                        Parent / student mobile
-                      </label>
-                      <input
-                        id="phone"
-                        name="phone"
-                        type="tel"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        required
-                        value={phone}
-                        onChange={(event) => setPhone(event.target.value)}
-                        placeholder="10-digit mobile number"
-                        className="input-field"
-                      />
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <label htmlFor="target-course" className="field-label">
-                          Course track
-                        </label>
-                        <select
-                          id="target-course"
-                          name="targetCourse"
-                          value={targetCourse}
-                          onChange={(event) =>
-                            setTargetCourse(event.target.value as LeadTargetCourse)
-                          }
-                          className="input-field"
-                        >
-                          <option value="CAT">CAT / MBA entrance</option>
-                          <option value="CLASS_12_PCM">Class 11–12 PCM</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label htmlFor="preferred-slot" className="field-label">
-                          Preferred slot
-                        </label>
-                        <select
-                          id="preferred-slot"
-                          name="preferredSlot"
-                          value={preferredSlot}
-                          onChange={(event) =>
-                            setPreferredSlot(event.target.value as LeadPreferredSlot)
-                          }
-                          className="input-field"
-                        >
-                          <option value="MORNING">Morning · 8–11 AM</option>
-                          <option value="EVENING">Evening · 4–7 PM</option>
-                          <option value="WEEKEND">Weekend</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label htmlFor="notes" className="field-label">
-                        Anything we should know? <span className="font-normal normal-case text-slate-400">(optional)</span>
-                      </label>
-                      <textarea
-                        id="notes"
-                        name="notes"
-                        rows={3}
-                        maxLength={500}
-                        value={notes}
-                        onChange={(event) => setNotes(event.target.value)}
-                        placeholder="Current class, target exam, preferred days…"
-                        className="input-field resize-none"
-                      />
-                    </div>
-
-                    {formError ? (
-                      <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium text-red-700">
-                        {formError}
-                      </p>
-                    ) : null}
-
-                    <button type="submit" disabled={submitting} className="btn-primary w-full">
-                      {submitting ? 'Saving your request…' : 'Request my free demo class'}
-                    </button>
-
-                    <p className="text-center text-[11px] leading-relaxed text-slate-500">
-                      Your number is used only to confirm this demo. We never publish parent or
-                      student contact details.
-                    </p>
-                  </form>
-                )}
+                <ContactForm initialCourse={activeTrack === 'cat' ? 'CAT' : 'CLASS_12_PCM'} />
               </div>
             </div>
 
