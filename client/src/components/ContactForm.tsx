@@ -45,54 +45,88 @@ export default function ContactForm({ initialCourse = 'CAT' }: ContactFormProps)
     setResult('Sending....');
     setSubmitting(true);
 
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    formData.append('access_key', '807a84df-22b2-4cc8-bf5a-37c990ceb9b4');
-    formData.append('subject', 'New Demo Class & Contact Form Submission - P.D.O Classes');
-    formData.append('from_name', 'P.D.O Classes Website');
+    const studentNameVal = name.trim();
+    const phoneVal = phone.trim();
+    const emailVal = email.trim();
+    const courseVal = course;
+    const slotVal = slot;
+    const messageVal = message.trim();
 
-    try {
-      const response = await fetch('https://api.web3forms.com/submit', {
-        method: 'POST',
-        body: formData,
-      });
+    const web3Payload = {
+      access_key: '807a84df-22b2-4cc8-bf5a-37c990ceb9b4',
+      name: studentNameVal,
+      email: emailVal,
+      phone: phoneVal,
+      course: courseVal === 'CLASS_12_PCM' ? 'Class 11–12 PCM' : 'CAT / MBA entrance',
+      slot: slotVal === 'MORNING' ? 'Morning · 8–11 AM' : slotVal === 'WEEKEND' ? 'Weekend' : 'Evening · 4–7 PM',
+      message: messageVal,
+      subject: `New Demo Class & Contact Form: ${studentNameVal} (${phoneVal})`,
+      from_name: 'P.D.O Classes Website',
+    };
 
-      const data = await response.json();
-      if (data.success) {
-        setResult('Form Submitted Successfully');
-        setIsSuccess(true);
-        form.reset();
-      } else {
-        setResult(data.message || 'Error submitting form. Please try again.');
-        setIsSuccess(false);
-      }
-    } catch {
-      setResult('Error submitting form. Please check your connection and try again.');
-      setIsSuccess(false);
-    } finally {
-      setSubmitting(false);
+    let web3Success = false;
+    let platformSuccess = false;
+
+    // Concurrently trigger Web3Forms submission and Institute Leads CRM registration
+    const [web3Result, platformResult] = await Promise.allSettled([
+      // 1. Web3Forms email notification
+      (async () => {
+        const response = await fetch('https://api.web3forms.com/submit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify(web3Payload),
+        });
+
+        const text = await response.text();
+        try {
+          const data = JSON.parse(text);
+          return Boolean(data && data.success);
+        } catch {
+          // If redirected or non-JSON success response
+          return response.ok && (text.includes('success') || text.includes('Thank you'));
+        }
+      })(),
+
+      // 2. Platform Leads database registration (ensures lead is never lost)
+      (async () => {
+        if (studentNameVal && phoneVal.replace(/\D/g, '').length >= 10) {
+          const leadRes = await api.createDemoLead({
+            studentName: studentNameVal,
+            phone: phoneVal,
+            targetCourse: courseVal === 'CLASS_12_PCM' ? 'CLASS_12_PCM' : 'CAT',
+            preferredSlot: slotVal === 'MORNING' ? 'MORNING' : slotVal === 'WEEKEND' ? 'WEEKEND' : 'EVENING',
+            notes: emailVal ? `[Email: ${emailVal}] ${messageVal}`.trim() : (messageVal || undefined),
+            instituteSlug: BUSINESS.instituteSlug,
+          });
+          return Boolean(leadRes && leadRes.leadId);
+        }
+        return false;
+      })(),
+    ]);
+
+    if (web3Result.status === 'fulfilled' && web3Result.value) {
+      web3Success = true;
+    }
+    if (platformResult.status === 'fulfilled' && platformResult.value) {
+      platformSuccess = true;
     }
 
-    // Also persist lead to the coaching institute database
-    try {
-      const studentNameVal = String(formData.get('name') || '').trim();
-      const phoneVal = String(formData.get('phone') || '').trim();
-      const emailVal = String(formData.get('email') || '').trim();
-      const courseVal = (formData.get('course') as LeadTargetCourse) || 'CAT';
-      const slotVal = (formData.get('slot') as LeadPreferredSlot) || 'EVENING';
-      const messageVal = String(formData.get('message') || '').trim();
+    setSubmitting(false);
 
-      if (studentNameVal && phoneVal.replace(/\D/g, '').length >= 10) {
-        await api.createDemoLead({
-          studentName: studentNameVal,
-          phone: phoneVal,
-          targetCourse: courseVal === 'CLASS_12_PCM' ? 'CLASS_12_PCM' : 'CAT',
-          preferredSlot: slotVal === 'MORNING' ? 'MORNING' : slotVal === 'WEEKEND' ? 'WEEKEND' : 'EVENING',
-          notes: emailVal ? `[Email: ${emailVal}] ${messageVal}`.trim() : (messageVal || undefined),
-          instituteSlug: BUSINESS.instituteSlug,
-        }).catch((err) => console.warn('Platform lead registration notice:', err));
-      }
-    } catch {}
+    if (web3Success || platformSuccess) {
+      setResult('Form Submitted Successfully');
+      setIsSuccess(true);
+      setName('');
+      setEmail('');
+      setPhone('');
+      setMessage('');
+    } else {
+      setResult('Error submitting form. Please check your connection or contact us on WhatsApp directly.');
+      setIsSuccess(false);
+    }
   };
 
   const resetForm = () => {
