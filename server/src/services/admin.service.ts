@@ -88,9 +88,19 @@ export async function listLeads(
   status?: string,
 ): Promise<LeadListResult> {
   const offset = (page - 1) * pageSize;
-  const statusFilter = status ? 'AND l.status = $4' : '';
-  const params: (string | number)[] = [db.instituteId, pageSize, offset];
-  if (status) params.push(status);
+  const dataParams: (string | number)[] = [db.instituteId, pageSize, offset];
+  let dataStatusSql = '';
+
+  const countParams: (string | number)[] = [db.instituteId];
+  let countStatusSql = '';
+
+  if (status) {
+    dataParams.push(status);
+    dataStatusSql = `AND l.status = $${dataParams.length}`;
+
+    countParams.push(status);
+    countStatusSql = `AND l.status = $${countParams.length}`;
+  }
 
   const [dataResult, countResult] = await Promise.all([
     db.query<LeadRow>(
@@ -100,14 +110,14 @@ export async function listLeads(
               TO_CHAR(COALESCE(l.updated_at, l.created_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS updated_at
          FROM leads l
         WHERE l.institute_id = $1
-          ${statusFilter}
+          ${dataStatusSql}
         ORDER BY l.created_at DESC
         LIMIT $2 OFFSET $3`,
-      params,
+      dataParams,
     ),
     db.query<{ total: string }>(
-      `SELECT COUNT(*)::text AS total FROM leads WHERE institute_id = $1 ${statusFilter}`,
-      status ? [db.instituteId, status] : [db.instituteId],
+      `SELECT COUNT(*)::text AS total FROM leads l WHERE l.institute_id = $1 ${countStatusSql}`,
+      countParams,
     ),
   ]);
 
@@ -404,9 +414,19 @@ export async function listStudents(
   batchId?: string,
 ): Promise<StudentListResult> {
   const offset = (page - 1) * pageSize;
-  const batchFilter = batchId ? 'AND s.batch_id = $4' : '';
-  const params: (string | number)[] = [db.instituteId, pageSize, offset];
-  if (batchId) params.push(batchId);
+  const dataParams: (string | number)[] = [db.instituteId, pageSize, offset];
+  let dataBatchSql = '';
+
+  const countParams: (string | number)[] = [db.instituteId];
+  let countBatchSql = '';
+
+  if (batchId) {
+    dataParams.push(batchId);
+    dataBatchSql = `AND s.batch_id = $${dataParams.length}`;
+
+    countParams.push(batchId);
+    countBatchSql = `AND s.batch_id = $${countParams.length}`;
+  }
 
   const [dataResult, countResult] = await Promise.all([
     db.query<StudentRow>(
@@ -417,14 +437,14 @@ export async function listStudents(
          FROM students s
          LEFT JOIN batches b ON b.batch_id = s.batch_id
         WHERE s.institute_id = $1
-          ${batchFilter}
+          ${dataBatchSql}
         ORDER BY s.created_at DESC
         LIMIT $2 OFFSET $3`,
-      params,
+      dataParams,
     ),
     db.query<{ total: string }>(
-      `SELECT COUNT(*)::text AS total FROM students WHERE institute_id = $1 ${batchFilter}`,
-      batchId ? [db.instituteId, batchId] : [db.instituteId],
+      `SELECT COUNT(*)::text AS total FROM students s WHERE s.institute_id = $1 ${countBatchSql}`,
+      countParams,
     ),
   ]);
 

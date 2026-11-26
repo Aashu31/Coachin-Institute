@@ -101,16 +101,6 @@ export default function LeadsManager(): JSX.Element {
     return `https://wa.me/${clean}`;
   };
 
-  if (state === 'error') {
-    return (
-      <div className="card border-red-200 bg-red-50 p-5">
-        <p className="text-sm font-semibold text-red-800">Could not load leads</p>
-        <p className="mt-1 text-xs leading-relaxed text-red-700">{error}</p>
-        <button onClick={loadLeads} className="btn-secondary mt-3 !min-h-9 !py-1.5 text-xs">Try again</button>
-      </div>
-    );
-  }
-
   const leads = data?.leads ?? [];
 
   return (
@@ -141,7 +131,13 @@ export default function LeadsManager(): JSX.Element {
         </div>
       </div>
 
-      {state === 'loading' ? (
+      {state === 'error' ? (
+        <div className="card border-red-200 bg-red-50 p-5">
+          <p className="text-sm font-semibold text-red-800">Could not load leads</p>
+          <p className="mt-1 text-xs leading-relaxed text-red-700">{error}</p>
+          <button onClick={loadLeads} className="btn-secondary mt-3 !min-h-9 !py-1.5 text-xs">Try again</button>
+        </div>
+      ) : state === 'loading' ? (
         <div className="space-y-3">
           {[0, 1, 2, 3, 4].map((i) => (
             <SkeletonListRow key={i} columns={6} />
